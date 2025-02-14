@@ -1,5 +1,4 @@
 from datetime import timedelta
-from copy import deepcopy
 import networkx as nx
 
 
@@ -8,16 +7,16 @@ def wrapping_time(day, tst, tet):
     tet = timedelta(days=day, minutes=tet)
     if tet < tst:
         tet += timedelta(days=1)
-        print("Found a wrap, adding a day to end time")
+        print("Warning: found a wrap, adding a day to end time")
     return tst, tet
 
 
-def safe_set(G, i, **kwargs):
+def vertex_set(G, i, **kwargs):
     for k, v in kwargs.items():
         node = G.nodes[i]
         existing = node.get(k)
         if existing is not None and existing != v:
-            print(f"Overwriting {k} from {existing} to {v}")
+            print(f"Warning: overwriting {k} from {existing} to {v}")
         node[k] = v
 
 
@@ -31,7 +30,7 @@ def to_nx(iid, data):
             i, i + 1, duration=duration.seconds, tst=tst, tet=tet, travel=row["mode"]
         )
 
-        safe_set(G, i, act=row["oact"], location=row["ozone"])
-        safe_set(G, i + 1, act=row["dact"], location=row["dzone"])
+        vertex_set(G, i, act=row["oact"], location=row["ozone"])
+        vertex_set(G, i + 1, act=row["dact"], location=row["dzone"])
 
     return G
