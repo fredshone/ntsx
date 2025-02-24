@@ -1,5 +1,6 @@
 from copy import deepcopy
 import networkx as nx
+from networkx import edge_bfs
 
 
 def anchor_activities(G, acts=["home"]):
@@ -22,7 +23,7 @@ def squash_on_act(G, act="home"):
     if len(locations) > 1:
         print(f"Found multiple locations for {act}: {locations}. UNKNOWN BEHAVIOUR")
 
-    g_new = nx.MultiDiGraph(iid=G.graph["iid"])
+    g_new = nx.MultiDiGraph()
     anchor = anchor_nodes[0]
 
     # add nodes
@@ -43,122 +44,98 @@ def squash_on_act(G, act="home"):
 
 
 def merge_similar(
-    G, anchors=None, duration_tolerance=0.2, respect_direction=True, verbose=False
-):
+    g: nx.MultiDiGraph, origin=None, duration_tolerance=0.2, verbose=False
+) -> nx.MultiDiGraph:
+    """Iteratively merge similar activities in the graph based on breadth-first search from origin.
 
-    if anchors is None:
-        anchors = G.nodes()
+    Args:
+        g (nx.MultiDiGraph): Input graph
+        origin (optional): Origin node identifier. Defaults to None.
+        duration_tolerance (float, optional): Duration similarity tolerance. Defaults to 0.2.
+        verbose (bool, optional): Verbosity. Defaults to False.
 
-    if respect_direction:
-        found = find_similar_with_direction(G, anchors, duration_tolerance)
-    else:
-        found = find_similar_without_direction(G, anchors, duration_tolerance)
+    Returns:
+        nx.MultiDiGraph: Output contracted graph.
+    """
 
-    if verbose:
-        print(f"Found {len(found)} similar activities:")
-        for i, j in found:
-            print(f"  {i} and {j}")
+    while True:
+        result = search_similar(g, origin, duration_tolerance=duration_tolerance)
+        if result is not None:
+            a, b = result
+            if verbose:
+                print(f"Contacting; {a} and {b}")
+            g = nx.contracted_nodes(g, a, b, self_loops=True)
 
-    g = G.copy()
-    candidates = len(found)
-    merged = 0
-    while found:
-        i, j = found.pop()
-        # check if i and j are still in the graph
-        if i not in g or j not in g:
-            continue
-        g = nx.contracted_nodes(g, i, j, self_loops=True)
-        merged += 1
-
-    print(f"Merged {merged} similar activities out of {candidates}.")
+        else:
+            break
     return g
 
 
-def find_similar_with_direction(G, anchors=None, duration_tolerance=0.2):
-    found = []
-    # first identify modes with shared anchor
-    for anchor in anchors:
-        successors = list(G.successors(anchor))
-        # iterate through all pairs of successors
-        for i in successors:
-            for j in successors:
-                if i == j:
-                    continue
+def search_similar(g: nx.MultiDiGraph, origin, duration_tolerance=0.2):
+    """Breadth-first search from origin (ignoring direction) activities that can be combined.
+    Combining activities is based on the following criteria:
+    1. Similar activities
+    2. Similar edges (same mode and similar duration)
+    Returns first pair of activities that can be combined.
+    If none are found returns None.
 
-                if are_similar_activities(G, i, j) and are_similar_edges(
-                    G,
-                    (anchor, i),
-                    (anchor, j),
-                    duration_tolerance=duration_tolerance,
-                ):
-                    found.append((i, j))
+    Args:
+        g (nx.MultiDiGraph): Input graph
+        origin: Origin node identifier
+        duration_tolerance (float, optional): Duration similarity tolerance. Defaults to 0.2.
 
-        predecessors = list(G.predecessors(anchor))
-        # iterate through all pairs of predecessors
-        for i in predecessors:
-            for j in predecessors:
-                if i == j:
-                    continue
-
-                if are_similar_activities(G, i, j) and are_similar_edges(
-                    G,
-                    (i, anchor),
-                    (j, anchor),
-                    duration_tolerance=duration_tolerance,
-                ):
-                    found.append((i, j))
-    return found
-
-
-def find_similar_without_direction(G, anchors=None, duration_tolerance=0.2):
-    found = []
-    # first identify modes with shared anchor
-    for anchor in anchors:
-        out_edges = set([(u, v, False) for u, v in G.out_edges(anchor)])  # outgoing
-        in_edges = set([(u, v, True) for u, v in G.in_edges(anchor)])  # incoming
+    Returns:
+        nx.MultiDiGraph: output graph
+    """
+    for _, v, _, _ in edge_bfs(g, origin, orientation="ignore"):
+        out_edges = set(
+            [((u, v, k), False) for u, v, k, in g.out_edges(v, keys=True)]
+        )  # outgoing
+        in_edges = set(
+            [((u, v, k), True) for u, v, k in g.in_edges(v, keys=True)]
+        )  # incoming
         edges = out_edges | in_edges
+        for a, a_reversed in edges:
+            for b, b_reversed in edges:
+                ua, va, _ = a
+                ub, vb, _ = b
 
-        for i, j, ij_reversed in edges:
-            for u, v, uv_reversed in edges:
-                if not are_similar_activities(G, j, v):
-                    continue
-                ij = (i, j)
-                uv = (u, v)
-                (i, j) = (i, j) if not ij_reversed else (j, i)
-                (u, v) = (u, v) if not uv_reversed else (v, u)
-                if j == v:
+                # get outer nodes
+                a_outer = va if not a_reversed else ua
+                b_outer = vb if not b_reversed else ub
+
+                if a_outer == b_outer:
                     continue
 
-                if are_similar_activities(G, j, v) and are_similar_edges(
-                    G,
-                    ij,
-                    uv,
+                if not are_similar_activities(g, a_outer, b_outer):
+                    continue
+
+                if are_similar_edges(
+                    g,
+                    a,
+                    b,
                     duration_tolerance=duration_tolerance,
                 ):
-                    found.append((j, v))
-    return found
+                    return a_outer, b_outer
+    return None
 
 
-def are_similar_activities(G, i, j):
-    node_i = G.nodes[i]
-    node_j = G.nodes[j]
-    if node_i["act"] != node_j["act"]:
+def are_similar_activities(G, a, b):
+    node_a = G.nodes[a]
+    node_b = G.nodes[b]
+    if node_a["act"] != node_b["act"]:
         return False
-    if node_i["location"] != node_j["location"]:
+    if node_a["location"] != node_b["location"]:
         return False
     return True
 
 
-def are_similar_edges(G, ij, uv, duration_tolerance=0.1):
+def are_similar_edges(G, a, b, duration_tolerance=0.2):
     """Return true if edges use same mode and have similar durations."""
-    i, j = ij
-    u, v = uv
-    print()
-    print(i, j)
-    print(G[i][j])
-    edge_a = G[i][j][0]  # todo: deal with multiple edges
-    print(u, v, G[u][v])
-    edge_b = G[u][v][0]
+    ua, va, ka = a
+    ub, vb, kb = b
+    edge_a = G[ua][va][ka]
+    edge_b = G[ub][vb][kb]
 
     if edge_a["travel"] != edge_b["travel"]:
         return False
@@ -170,13 +147,37 @@ def are_similar_edges(G, ij, uv, duration_tolerance=0.1):
 
 
 def iter_days(G):
-    days = set(data["tst"].days for (_), data in G.edges(data=True)) | set(
-        data["tet"].days for (_), data in G.edges(data=True)
+    days = set(data["tst"].days for _, _, data in G.edges(data=True)) | set(
+        data["tet"].days for _, _, data in G.edges(data=True)
     )
     day_min = min(days)
     days_max = max(days)
     for day in range(day_min, days_max + 1):
         edges = set(
-            [e for e, data in G.edges(data=True) if data["tst"].days == day]
-        ) | set([e for e, data in G.edges(data=True) if data["tet"].days == day])
-        yield day, G.edge_subgraph(edges).copy()
+            [
+                (u, v, k)
+                for u, v, k, data in G.edges(keys=True, data=True)
+                if data["tst"].days == day
+            ]
+        ) | set(
+            [
+                (u, v, k)
+                for u, v, k, data in G.edges(keys=True, data=True)
+                if data["tet"].days == day
+            ]
+        )
+        g = G.edge_subgraph(edges)
+        if g.number_of_edges() > 0:
+            yield day, g
+
+
+def iter_days_masked(G):
+    default_mask = G.copy()
+    for u, v, k in default_mask.edges(keys=True):
+        default_mask[u][v][k]["masked"] = False
+
+    for day, g in iter_days(G):
+        mask_g = default_mask.copy()
+        for u, v, k in g.edges(keys=True):
+            mask_g[u][v][k]["masked"] = True
+        yield day, mask_g
