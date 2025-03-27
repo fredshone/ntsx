@@ -15,7 +15,7 @@ class GCN(torch.nn.Module):
         self.dropout = dropout
 
     def forward(self, x, edge_index, batch):
-        # 1. Obtain node embeddings 
+        # 1. Obtain node embeddings
         x = self.conv1(x, edge_index)
         x = x.relu()
         x = self.conv2(x, edge_index)
@@ -28,5 +28,5 @@ class GCN(torch.nn.Module):
         # 3. Apply a final classifier
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin(x)
-        
+
         return x

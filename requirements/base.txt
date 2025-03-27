@@ -1,3 +1,5 @@
 matplotlib
 pandas
 networkx
+torch
+torch_geometric

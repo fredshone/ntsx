@@ -105,6 +105,7 @@ def train_epoch(model, train_loader, optimizer, criterion, device):
         total_loss += loss
     return total_loss / len(train_loader)
 
+
 def eval_model(model, loader, device):
     """
     Evaluate the model on the validation or test data.
@@ -126,6 +127,7 @@ def eval_model(model, loader, device):
             loss = torch.nn.functional.cross_entropy(out, data.labels)
             total_loss += loss
     return total_loss / len(loader.dataset)
+
 
 def split_dataset(graphs: List[nx.MultiDiGraph], train_ratio: float = 0.8):
     """

@@ -2,7 +2,10 @@ import networkx as nx
 from torch_geometric.utils import from_networkx
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from typing import List, Optional
+from typing import List
+
+# Need to add custom data loader when using NTS later
+
 
 def nx_to_torch_geo(graphs: List[nx.MultiDiGraph]) -> List[Data]:
     """
@@ -30,7 +33,7 @@ def build_loader(
         graphs (List[Data]): The list of PyTorch Geometric Data objects.
         batch_size (int, optional, default 1): The size of each batch.
         shuffle (bool, optional, default True): Whether to shuffle the data.
-        **kwargs: Additional keyword arguments from torch.utils.data.DataLoader 
+        **kwargs: Additional keyword arguments from torch.utils.data.DataLoader
             or torch_geometric.loader.DataLoader to pass to the DataLoader.
 
     Returns:
