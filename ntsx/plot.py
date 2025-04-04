@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 def plot(G, ax=None, with_labels: bool = True, seed: int = 1234, **kwargs):
     """Plot a networkx graph with spring layout."""
     acts = {i: node.get("act") for i, node in G.nodes(data=True)}
-    node_color = [act for act in acts.values()]
+    act_mapping = {a: i for i, a in enumerate(set(acts.values()))}
+    node_color = [act_mapping[act] for act in acts.values()]
     k = kwargs.pop("k", 0.01)
     if ax is None:
         fig, ax = plt.subplots(**kwargs)

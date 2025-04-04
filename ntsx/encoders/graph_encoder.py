@@ -51,9 +51,10 @@ class GraphEncoder:
         Returns:
             DataFrame: encoded data
         """
+        encoded = trips.copy()
         for name, encoder in self.encoders.items():
-            trips[name] = encoder.encode(trips[name])
-        return trips
+            encoded[name] = encoder.encode(trips[name])
+        return encoded
 
     def encode(self, feature, name: str) -> Any:
         """Encode the feature using the named encoder.
