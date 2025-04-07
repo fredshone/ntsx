@@ -26,8 +26,8 @@ class GraphEncoder:
             "oact": CategoricalTokeniser(trips["oact"]),
             "dact": CategoricalTokeniser(trips["dact"]),
             "day": CategoricalTokeniser(trips["day"]),
-            "tst": TimeEncoder(trips["tst"], min_value=0, day_value=1440),
-            "tet": TimeEncoder(trips["tet"], min_value=0, day_value=1440),
+            "tst": TimeEncoder(trips["tst"], min_value=0, day_range=1440),
+            "tet": TimeEncoder(trips["tet"], min_value=0, day_range=1440),
             "ozone": CategoricalTokeniser(trips["ozone"]),
             "dzone": CategoricalTokeniser(trips["dzone"]),
         }

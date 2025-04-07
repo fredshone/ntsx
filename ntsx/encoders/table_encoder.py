@@ -2,7 +2,7 @@ from torch import Tensor, stack
 from typing import List, Optional
 import pandas as pd
 
-from ntsx.encoders.utils import tokenize
+from ntsx.encoders.base_encoders import CategoricalTokeniser
 
 
 class TableTokeniser:
@@ -12,6 +12,7 @@ class TableTokeniser:
         data: pd.DataFrame,
         include: Optional[list] = None,
         exclude: Optional[list] = None,
+        verbose: bool = False,
     ):
         """Tokenise a pandas dataframe into a Tensor,
         and initialise mapping for further encoding and decoding.
@@ -31,38 +32,26 @@ class TableTokeniser:
             raise UserWarning("No columns found to encode in table.")
 
         self.columns = columns
-        self.configure(data)
+        self.configure(data, verbose=verbose)
 
-        print(
-            f"""{self} configured with columns: {self.columns}
-            embed_types: {self.embed_types}
-            embed_sizes: {self.embed_sizes}
-            maps: {self.maps}
-            dtypes: {self.dtypes}"""
-        )
-
-    def configure(self, data: pd.DataFrame) -> None:
+    def configure(self, data: pd.DataFrame, verbose: bool = False) -> None:
         """Configure the tokeniser by encoding the dataframe columns.
         Args:
             data (pd.DataFrame): input dataframe to configure.
+            verbose (bool, optional): print the configuration. Defaults to False.
         """
 
-        n = len(self.columns)
-        self.embed_types = [None for _ in range(n)]
-        self.embed_sizes = [None for _ in range(n)]
-        self.maps = [None for _ in range(n)]
-        self.dtypes = [None for _ in range(n)]
+        self.encoders = []
 
-        for i, column in enumerate(self.columns):
+        for column in self.columns:
             if column not in data.columns:
                 raise UserWarning(f"Column '{column}' not found in attributes")
 
             # todo: Assume all nominal categorical encoding for now
-            _, map = tokenize(data[column], None)
-            self.embed_types[i] = "categorical"
-            self.embed_sizes[i] = len(map)
-            self.maps[i] = map
-            self.dtypes[i] = data[column].dtype
+            # todo: later can add a config and other types
+            self.encoders.append(
+                CategoricalTokeniser(data[column], column, verbose=verbose)
+            )
 
     def encode(self, data: pd.DataFrame) -> Tensor:
         """Encode the dataframe into a Tensor.
@@ -72,10 +61,10 @@ class TableTokeniser:
             Tensor: encoded dataframe.
         """
         encoded = []
-        for column, map in zip(self.columns, self.maps):
+        for column, encoder in zip(self.columns, self.encoders):
             if column not in data.columns:
                 raise UserWarning(f"Column '{column}' not found in attributes")
-            column_encoded, _ = tokenize(data[column], map)
+            column_encoded = encoder.encode(data[column])
             encoded.append(column_encoded)
 
         if not encoded:
@@ -85,6 +74,20 @@ class TableTokeniser:
 
         encoded = stack(encoded, dim=-1).long()
         return encoded
+
+    def embed_types(self) -> List[str]:
+        """Get the types of the embeddings.
+        Returns:
+            List[str]: list of types of the embeddings.
+        """
+        return [encoder.encoding for encoder in self.encoders]
+
+    def embed_sizes(self) -> List[int]:
+        """Get the sizes of the embeddings.
+        Returns:
+            List[int]: list of sizes of the embeddings.
+        """
+        return [encoder.size for encoder in self.encoders]
 
     def decode(self, data: List[Tensor]) -> pd.DataFrame:
         """Decode Tensor of tokens back into dataframe.
@@ -96,12 +99,9 @@ class TableTokeniser:
             pd.DataFrame: decoded dataframe.
         """
         decoded = {"pid": list(range(data.shape[0]))}
-        for i, (column, map, dtype) in enumerate(
-            zip(self.columns, self.maps, self.dtypes)
-        ):
-            encoding = {i: name for name, i in map.items()}
+        for i, (column, encoder) in enumerate(zip(self.columns, self.encoders)):
             tokens = data[:, i].tolist()
-            decoded[column] = pd.Series([encoding[i] for i in tokens]).astype(dtype)
+            decoded[column] = encoder.decode(tokens)
         return pd.DataFrame(decoded)
 
     def argmax_decode(self, data: List[Tensor]) -> pd.DataFrame:

@@ -1,9 +1,22 @@
 from pandas import Series
 from typing import Optional, Iterable
 from ntsx.encoders.utils import tokenize
+from torch import Tensor
 
 
 class BaseEncoder:
+
+    def __init__(self, data: Iterable, name: Optional[str] = None):
+        raise NotImplementedError(
+            "BaseEncoder is an abstract class. Please use a concrete encoder."
+        )
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+    def __str__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
     def read_data(self, data: Iterable, name: Optional[str] = None) -> Series:
 
         if not isinstance(data, Series):
@@ -15,14 +28,23 @@ class BaseEncoder:
             self.name = data.name
         return data
 
+    def encode(self, data: Iterable) -> Tensor:
+        raise NotImplementedError("Encode method not implemented.")
+
+    def decode(self, data: Iterable) -> Series:
+        raise NotImplementedError("Decode method not implemented.")
+
 
 class ContinuousEncoder(BaseEncoder):
-    def __init__(self, data: Iterable, name: Optional[str] = None):
+    def __init__(
+        self, data: Iterable, name: Optional[str] = None, verbose: bool = False
+    ):
         """ContinuousEncoder is used to encode continuous data to a range between 0 and 1.
 
         Args:
             data (Iterable): input data to be encoded
             name (str, optional): name of the encoder. Defaults to None.
+            verbose (bool, optional): print the encoder configuration. Defaults to False.
         Raises:
             UserWarning: If the data is not of type int or float.
         """
@@ -45,16 +67,11 @@ class ContinuousEncoder(BaseEncoder):
         self.size = 1
 
         print(
-            f"""ContinuousEncoder({self.name}):
-            min: {self.mini}, max: {self.maxi},
-            range: {self.range}
-            mean: {self.mean}, std: {self.std}
-            dtype: {self.dtype}
-"""
+            f"{self}: min: {self.mini}, max: {self.maxi}, range: {self.range}, dtype: {self.dtype}"
         )
 
-    def encode(self, data: Iterable) -> Series:
-        data = Series(data)
+    def encode(self, data: Iterable) -> Tensor:
+        data = Tensor(data)
         return (data - self.mini) / self.range
 
     def decode(self, data: Iterable) -> Series:
@@ -69,7 +86,8 @@ class TimeEncoder(BaseEncoder):
         data: Iterable,
         name: Optional[str] = None,
         min_value: float = 0,
-        day_value: float = 1440,
+        day_range: float = 1440,
+        verbose: bool = False,
     ):
         """TimeEncoder is used to encode continuous data to a range between 0 and 1.
 
@@ -77,7 +95,8 @@ class TimeEncoder(BaseEncoder):
             data (Iterable): input data to be encoded
             name (str, optional): name of the encoder. Defaults to None.
             min_value (float, optional): minimum value of the encoder. Defaults to 0.
-            day_value (float, optional): range of the encoder. Defaults to 1440.
+            day_range (float, optional): range of the encoder. Defaults to 1440.
+            verbose (bool, optional): print the encoder configuration. Defaults to False.
         Raises:
             UserWarning: If the data is not of type int or float.
         """
@@ -85,7 +104,7 @@ class TimeEncoder(BaseEncoder):
         if data.dtype.kind not in "fi":
             raise UserWarning("TimeEncoder only supports float and int data types.")
         self.mini = min_value
-        self.range = day_value
+        self.range = day_range
         self.mean = data.mean()
         self.std = data.std()
         if self.range == 0:
@@ -95,16 +114,13 @@ class TimeEncoder(BaseEncoder):
         self.encoding = "time"
         self.size = 1
 
-        print(
-            f"""TimeEncoder({self.name}):
-            min: {self.mini}, range: {self.range}
-            mean: {self.mean}, std: {self.std}
-            dtype: {self.dtype}
-"""
-        )
+        if verbose:
+            print(
+                f"{self.name}: min: {self.mini}, range: {self.range}, dtype: {self.dtype}"
+            )
 
-    def encode(self, data: Iterable) -> Series:
-        data = Series(data)
+    def encode(self, data: Iterable) -> Tensor:
+        data = Tensor(data)
         return (data - self.mini) / self.range
 
     def decode(self, data: Iterable) -> Series:
@@ -114,12 +130,15 @@ class TimeEncoder(BaseEncoder):
 
 
 class CategoricalTokeniser(BaseEncoder):
-    def __init__(self, data: Iterable, name: Optional[str] = None):
+    def __init__(
+        self, data: Iterable, name: Optional[str] = None, verbose: bool = False
+    ):
         """CategoricalEncoder is used to encode categorical data as integers from 0 to N.
         Where N is the number of unique categories.
         Args:
             data (Iterable): input data to be encoded
             name (str, optional): name of the encoder. Defaults to None.
+            verbose (bool, optional): print the encoder configuration. Defaults to False.
         Raises:
             UserWarning: If the data is not of type int or object.
         """
@@ -134,21 +153,26 @@ class CategoricalTokeniser(BaseEncoder):
         self.encoding = "categorical"
         self.size = len(self.mapping)
 
-        print(
-            f"""CategoricalEncoder({self.name}):
-            size: {self.size}
-            categories: {self.mapping}
-            """
-        )
-        if self.size > 20:
+        if verbose:
             print(
-                f">>> Warning: CategoricalEncoder has more than 20 categories ({self.size})). <<<"
+                f"{self.name}: size: {self.size}, categories: {self.mapping}, dtype: {self.dtype}"
             )
+            if self.size > 20:
+                print(
+                    f">>> Warning: CategoricalEncoder has more than 20 categories ({self.size})). <<<"
+                )
 
-    def encode(self, data: Iterable) -> Series:
+    def encode(self, data: Iterable) -> Tensor:
         data = Series(data)
-        return Series(tokenize(data, self.mapping)[0]).astype("int")
+        return tokenize(data, self.mapping)[0]
 
-    def decode(self, data: Iterable) -> Series:
+    def decode(self, data: Iterable, safe: bool = True) -> Series:
         data = Series(data)
-        return data.map({v: k for k, v in self.mapping.items()}).astype(self.dtype)
+        reverse_mapping = {v: k for k, v in self.mapping.items()}
+        if safe:
+            missing = set(data.unique()) - set(reverse_mapping.keys())
+            if missing:
+                raise UserWarning(
+                    f"Missing categories in data: {missing}. Please check your encoding."
+                )
+        return data.map(reverse_mapping).astype(self.dtype)

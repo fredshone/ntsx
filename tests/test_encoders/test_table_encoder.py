@@ -14,13 +14,8 @@ def test_encoder_all():
     expected = Tensor([[1, 1], [2, 0], [0, 0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["A", "B"]
-    assert encoder.embed_types == ["categorical", "categorical"]
-    assert encoder.embed_sizes == [3, 2]
-    assert encoder.maps == [
-        {15: 0, 34: 1, 96: 2},
-        {"F": 0, "M": 1},
-    ]
-    assert encoder.dtypes == ["int64", "object"]
+    assert encoder.embed_types() == ["categorical", "categorical"]
+    assert encoder.embed_sizes() == [3, 2]
 
 
 def test_encoder_include():
@@ -30,10 +25,8 @@ def test_encoder_include():
     expected = Tensor([[1], [2], [0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["A"]
-    assert encoder.embed_types == ["categorical"]
-    assert encoder.embed_sizes == [3]
-    assert encoder.maps == [{15: 0, 34: 1, 96: 2}]
-    assert encoder.dtypes == ["int64"]
+    assert encoder.embed_types() == ["categorical"]
+    assert encoder.embed_sizes() == [3]
 
 
 def test_encoder_exclude():
@@ -43,10 +36,8 @@ def test_encoder_exclude():
     expected = Tensor([[1], [0], [0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["B"]
-    assert encoder.embed_types == ["categorical"]
-    assert encoder.embed_sizes == [2]
-    assert encoder.maps == [{"F": 0, "M": 1}]
-    assert encoder.dtypes == ["object"]
+    assert encoder.embed_types() == ["categorical"]
+    assert encoder.embed_sizes() == [2]
 
 
 def test_encoder_missing_include():
@@ -87,6 +78,6 @@ def test_decode_unknown_token():
     data = DataFrame({"pid": [0, 1, 2], "A": [34, 96, 15], "B": ["M", "F", "F"]})
     encoder = TableTokeniser(data)
     encoded = Tensor([[1, 1], [2, 0], [0, 2]]).long()
-    with pytest.raises(KeyError) as w:
+    with pytest.raises(UserWarning) as w:
         _ = encoder.decode(encoded)
         assert w.message.contains("2")
