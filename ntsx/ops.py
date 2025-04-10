@@ -2,6 +2,8 @@ from copy import deepcopy
 import networkx as nx
 from networkx import edge_bfs
 
+from typing import Optional
+
 
 def anchor_activities(G, acts=["home"]):
     g = G.copy()
@@ -64,7 +66,9 @@ def merge_similar(
             a, b = result
             if verbose:
                 print(f"Contacting; {a} and {b}")
-            g = nx.contracted_nodes(g, a, b, self_loops=True)
+            g = nx.identified_nodes(g, a, b, self_loops=True, copy=True)
+            for i, data in g.nodes(data=True):
+                data.pop("contraction", None)
 
         else:
             break
@@ -146,10 +150,13 @@ def are_similar_edges(G, a, b, duration_tolerance=0.2):
     return True
 
 
-def iter_days(G):
+def iter_days(G, stop: Optional[int] = None):
+    """Iterate over days in the graph. Each day is a subgraph of the original graph."""
     days = set(data["day"] for _, _, data in G.edges(data=True))
     day_min = min(days)
     days_max = max(days)
+    if stop is not None:
+        days_max = min(days_max, day_min + stop)
     for day in range(day_min, days_max + 1):
         edges = set(
             [

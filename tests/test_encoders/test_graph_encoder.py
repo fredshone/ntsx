@@ -1,4 +1,4 @@
-from ntsx.encoders.graph_encoder import GraphEncoder
+from ntsx.encoders.trip_encoder import TripEncoder
 from pandas import DataFrame
 
 
@@ -15,7 +15,7 @@ def test_graph_encoder():
             "dzone": ["zone2", "zone1", "zone3", "zone1"],
         }
     )
-    encoder = GraphEncoder(trips)
+    encoder = TripEncoder(trips)
     assert encoder.get_encoding("mode") == "categorical"
     assert encoder.get_encoding("oact") == "categorical"
     assert encoder.get_encoding("dact") == "categorical"

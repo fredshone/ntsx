@@ -1,4 +1,4 @@
-from pandas import DataFrame
+from pandas import DataFrame, concat
 from typing import Iterable, Any
 
 from ntsx.encoders.base_encoders import (
@@ -7,11 +7,11 @@ from ntsx.encoders.base_encoders import (
 )
 
 
-class GraphEncoder:
+class TripEncoder:
 
     def __init__(self, trips: DataFrame):
         """
-        GraphEncoder is used to encode the graph data.
+        TripEncoder is used to encode the trip/graph data.
 
         Todo:
         - can only be initialised with a trips table.
@@ -21,16 +21,24 @@ class GraphEncoder:
         Args:
             trips (DataFrame): input data to be encoded
         """
+        acts = concat((trips["oact"], trips["dact"]))
+        act_encoder = CategoricalTokeniser(acts)
+        zones = concat((trips["ozone"], trips["dzone"]))
+        zone_encoder = CategoricalTokeniser(zones)
         self.encoders = {
             "mode": CategoricalTokeniser(trips["mode"]),
-            "oact": CategoricalTokeniser(trips["oact"]),
-            "dact": CategoricalTokeniser(trips["dact"]),
+            "oact": act_encoder,
+            "dact": act_encoder,
             "day": CategoricalTokeniser(trips["day"]),
             "tst": TimeEncoder(trips["tst"], min_value=0, day_range=1440),
             "tet": TimeEncoder(trips["tet"], min_value=0, day_range=1440),
-            "ozone": CategoricalTokeniser(trips["ozone"]),
-            "dzone": CategoricalTokeniser(trips["dzone"]),
+            "ozone": zone_encoder,
+            "dzone": zone_encoder,
         }
+
+    def embed_sizes(self) -> dict:
+        """Get the sizes of the embeddings."""
+        return {k: encoder.size for k, encoder in self.encoders.items()}
 
     def get_encoding(self, name: str) -> str:
         """Get the encoder for the given name."""

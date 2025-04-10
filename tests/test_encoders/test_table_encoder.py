@@ -14,8 +14,8 @@ def test_encoder_all():
     expected = Tensor([[1, 1], [2, 0], [0, 0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["A", "B"]
-    assert encoder.embed_types() == ["categorical", "categorical"]
-    assert encoder.embed_sizes() == [3, 2]
+    assert encoder.embed_types() == {"A": "categorical", "B": "categorical"}
+    assert encoder.embed_sizes() == {"A": 3, "B": 2}
 
 
 def test_encoder_include():
@@ -25,8 +25,8 @@ def test_encoder_include():
     expected = Tensor([[1], [2], [0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["A"]
-    assert encoder.embed_types() == ["categorical"]
-    assert encoder.embed_sizes() == [3]
+    assert encoder.embed_types()["A"] == "categorical"
+    assert encoder.embed_sizes()["A"] == 3
 
 
 def test_encoder_exclude():
@@ -36,8 +36,8 @@ def test_encoder_exclude():
     expected = Tensor([[1], [0], [0]]).long()
     assert_close(encoded, expected)
     assert encoder.columns == ["B"]
-    assert encoder.embed_types() == ["categorical"]
-    assert encoder.embed_sizes() == [2]
+    assert encoder.embed_types()["B"] == "categorical"
+    assert encoder.embed_sizes()["B"] == 2
 
 
 def test_encoder_missing_include():
