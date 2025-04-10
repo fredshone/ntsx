@@ -101,14 +101,14 @@ def load_trips(path, years=None):
     data.dzone = pd.to_numeric(data.dzone, errors="coerce")
     data.freq = pd.to_numeric(data.freq, errors="coerce")
 
-    data["did"] = data.groupby("iid")["day"].transform(lambda x: pd.factorize(x)[0] + 1)
+    data["did"] = data.groupby("iid")["day"].transform(lambda x: pd.factorize(x)[0])
     data["pid"] = data["hid"].astype(str) + "_" + data["iid"].astype(str)
     data = data.loc[
         data.groupby("pid").filter(lambda x: pd.isnull(x).sum().sum() < 1).index
     ]
+    # remove wrapping of end times around midnight
     data.loc[data.tet == 0, "tet"] = 1440
-
-    # travel_diaries = travel_diaries.drop(["tid", "day", "year", "did"], axis=1)
+    data.loc[data.tet < data.tst, "tet"] += 1440
 
     mode_mapping = {
         1: "walk",

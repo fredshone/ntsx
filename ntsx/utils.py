@@ -98,7 +98,7 @@ def train_epoch(model, train_loader, optimizer, criterion, device):
     for data in train_loader:
         data = data.to(device)
         optimizer.zero_grad()
-        output = model(data.features, data.edge_index, data.batch)
+        output = model(data.x, data.edge_index, data.batch)
         loss = criterion(output, data.labels)
         loss.backward()
         optimizer.step()
@@ -123,7 +123,7 @@ def eval_model(model, loader, device):
     for data in loader:
         data.to(device)
         with torch.no_grad():
-            out = model(data.features, data.edge_index, data.batch)
+            out = model(data.x, data.edge_index, data.batch)
             loss = torch.nn.functional.cross_entropy(out, data.labels)
             total_loss += loss
     return total_loss / len(loader.dataset)
