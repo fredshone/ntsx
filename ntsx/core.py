@@ -1,13 +1,11 @@
-from datetime import timedelta
 import networkx as nx
 
 
-def wrapping_time(day, tst, tet):
-    tst = timedelta(days=day, minutes=tst)
-    tet = timedelta(days=day, minutes=tet)
+def check_time(tst, tet):
     if tet < tst:
-        tet += timedelta(days=1)
-        print("Warning: found a wrap, adding a day to end time")
+        # Assume wrapped around midnight
+        tet += 1
+        print("Warning: found a wrap, adding one to end time")
     return tst, tet
 
 
@@ -27,12 +25,13 @@ def to_nx(data):
         i = i + 1
         for _, row in person.iterrows():
             i = i + 1
-            tst, tet = wrapping_time(row["day"], row["tst"], row["tet"])
+            tst, tet = check_time(row["tst"], row["tet"])
             duration = tet - tst
             G.add_edge(
                 i,
                 i + 1,
-                duration=duration.seconds,
+                duration=duration,
+                day=row["day"],
                 tst=tst,
                 tet=tet,
                 travel=row["mode"],
