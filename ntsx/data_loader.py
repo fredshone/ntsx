@@ -17,10 +17,7 @@ def nx_to_torch_geo(graphs: List[nx.MultiDiGraph]) -> List[Data]:
     Returns:
         List[Data]: The list of PyTorch Geometric Data objects.
     """
-    return [
-        from_networkx(graph, group_edge_attrs="all", group_node_attrs="all")
-        for graph in graphs
-    ]
+    return [from_networkx(graph) for graph in graphs]
 
 
 def build_loader(
