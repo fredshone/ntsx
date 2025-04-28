@@ -43,3 +43,6 @@ mike-*.yml
 
 # Jupyter notebooks
 .ipynb_checkpoints
+
+# Data
+data/NTS
