@@ -75,6 +75,21 @@ class TableTokeniser:
         encoded = stack(encoded, dim=-1).long()
         return encoded
 
+    def encode_table(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Encode the dataframe.
+        Args:
+            data (pd.DataFrame): input dataframe to encode.
+        Returns:
+            pd.DataFrame: encoded dataframe.
+        """
+        encoded = pd.DataFrame(index=data.index)
+        for column, encoder in self.encoders.items():
+            if column not in data.columns:
+                raise UserWarning(f"Column '{column}' not found in data")
+            encoded[column] = encoder.encode(data[column])
+
+        return encoded
+
     def encode_series(self, data: pd.Series) -> Tensor:
         """Encode a pandas series into a 1d Tensor.
         Args:

@@ -6,7 +6,7 @@ from ntsx.utils import (
     train_epoch,
     eval_model,
 )
-from ntsx.data_loader import build_loader, nx_to_torch_geo
+from ntsx.nx_to_torch import build_loader, nx_to_torch_geo
 from ntsx.gcn import GCN
 
 import torch

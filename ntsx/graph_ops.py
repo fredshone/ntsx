@@ -7,6 +7,7 @@ from typing import Optional
 
 def anchor_activities(G, acts=["home"]):
     g = G.copy()
+    g.graph = G.graph
     for act in acts:
         g = squash_on_act(g, act)[0]
     return g
@@ -26,6 +27,7 @@ def squash_on_act(G, act="home"):
         print(f"Found multiple locations for {act}: {locations}. UNKNOWN BEHAVIOUR")
 
     g_new = nx.MultiDiGraph()
+    g_new.graph = G.graph
     anchor = anchor_nodes[0]
 
     # add nodes
@@ -172,6 +174,8 @@ def iter_days(G, stop: Optional[int] = None):
             ]
         )
         g = G.edge_subgraph(edges)
+        g.graph = G.graph
+        g.graph["day"] = day
         if g.number_of_edges() > 0:
             yield day, g
 
