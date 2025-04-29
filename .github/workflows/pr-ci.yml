@@ -1,0 +1,41 @@
+name: Pull Request CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - README.md
+      - CHANGELOG.md
+      - LICENSE
+      - CONTRIBUTING.md
+      - docs/**
+      - mkdocs.yml
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        py3version: ["12", "13"]
+      fail-fast: false
+    uses: fredshone/actions/.github/workflows/python-install-lint-test.yml@main
+    with:
+      os: ${{ matrix.os }}
+      py3version: ${{ matrix.py3version }}
+      notebook_kernel: ntsx
+      lint: false
+      pytest_args: '--no-cov'  # ignore coverage
+      upload_to_codecov: false
+      additional_mamba_args: '-c conda-forge -c city-modelling-lab -c pytorch -c nvidia'
+
+  test-coverage:
+    uses: fredshone/actions/.github/workflows/python-install-lint-test.yml@main
+    with:
+      os: ubuntu-latest
+      py3version: "13"
+      notebook_kernel: ntsx
+      lint: false
+      pytest_args: 'tests/'  # ignore example notebooks
+      upload_to_codecov: true
+      additional_mamba_args: '-c conda-forge -c city-modelling-lab -c pytorch -c nvidia'
