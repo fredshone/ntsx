@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        py3version: ["9", "11"]
+        py3version: ["12", "13"]
       fail-fast: false
     uses: fredshone/actions/.github/workflows/python-install-lint-test.yml@main
     with:

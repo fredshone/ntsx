@@ -88,7 +88,7 @@ authors = [
 maintainers = []
 description = "Activity sequences as graphs"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 keywords = ["NTS", "ABM", "Activity Based Modelling", "Agent Based Modelling", "Graph", "Network"]
 license = { text = "MIT" }
 dynamic = ["dependencies", "optional-dependencies", "version"]
