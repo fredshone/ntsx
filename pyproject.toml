@@ -1,0 +1,109 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-rav --strict-markers -n2 --nbmake --nbmake-kernel=ntsx --cov --cov-report=xml --cov-config=pyproject.toml -m 'not high_mem' -p no:memray"
+testpaths = ["tests", "examples", "integration_tests"]
+# to mark a test, decorate it with `@pytest.mark.[marker-name]`
+markers = ["high_mem", "limit_memory"]
+filterwarnings = [
+    # https://github.com/pytest-dev/pytest-xdist/issues/825
+    "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["ntsx/"]
+
+[tool.coverage.report]
+fail_under = 40
+
+[tool.coverage.html]
+directory = "reports/coverage"
+
+[tool.coverage.xml]
+output = "reports/coverage/coverage.xml"
+
+[tool.black]
+line-length = 80
+skip_magic_trailing_comma = true
+
+[tool.ruff]
+line-length = 80
+lint.select = ["E", "F", "I", "Q"]
+lint.ignore = [
+    "E501", # line too long: Black will handle this.
+    "D1",   # Ignore missing docstrings in public functions/modules. There are just too many of them missing...
+]
+# Exclude a variety of commonly ignored directories.
+exclude = [".*", "__pypackages__", "build", "dist", "venv", "reports/"]
+
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
+# Ignore `E402` (import violations) and `F401` (unused imports) in all `__init__.py` files
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+"*.ipynb" = ["E402"]
+
+# Ignore `E402` for all notebooks
+[tool.nbqa.addopts]
+ruff = ["--extend-ignore=E402"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.setuptools.packages.find]
+include = ["ntsx*"]
+
+[tool.setuptools.package-data]
+# Add file globs from the source code directory if they include non-py files that should be packaged
+# E.g. "fixtures/**/*"
+ntsx = []
+
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+classifiers = [
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+    ]
+
+name = "ntsx"
+authors = [
+    { name = "Fred Shone", email = "26383933+fredshone@users.noreply.github.com" },
+    { name = "Nicolas Salvade" }
+]
+maintainers = []
+description = "Activity sequences as graphs"
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = ["NTS", "ABM", "Activity Based Modelling", "Agent Based Modelling", "Graph", "Network"]
+license = { text = "MIT" }
+dynamic = ["dependencies", "optional-dependencies", "version"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements/base.txt"] }
+version = { attr = "ntsx.__version__" }
+
+[project.scripts]
+ntsx="ntsx.cli:cli"
+
+# [tool.setuptools.dynamic.optional-dependencies]
+# dev = { file = ["requirements/dev.txt"] }
+
+[project.urls]
+repository = "https://github.com/fredshone/ntsx"
+# documentation = "https://fredshone.github.io/ntsx"
+# changelog = "https://github.com/fredshone/ntsx/blob/main/CHANGELOG.md"
