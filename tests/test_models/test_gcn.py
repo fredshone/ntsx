@@ -1,5 +1,5 @@
 from ntsx.utils import (
-    add_dummy_features,
+    add_dummy_cat_node_features,
     add_dummy_labels,
     generate_dummy_graphs,
     split_dataset,
@@ -7,7 +7,7 @@ from ntsx.utils import (
     eval_model,
 )
 from ntsx.nx_to_torch import build_loader, nx_to_torch_geo
-from ntsx.gcn import GCN
+from ntsx.models.models import GCNGraphLabeller
 
 import torch
 import pytest
@@ -22,16 +22,16 @@ else:
 
 
 @pytest.mark.parametrize(
-    "num_graphs, num_nodes, degree, edge_weight, hidden_channels, n_in, n_out, batch_size, shuffle, lr, device, dropout",
+    "num_graphs, num_nodes, degree, edge_weight, hidden_channels, n_out, num_cat, batch_size, shuffle, lr, device, dropout",
     [
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cpu", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cpu", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cuda:0", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cuda:0", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cpu", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cpu", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cuda:0", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cuda:0", 0),
+        (10, 5, 3, 1, 16, 2, 3, 2, True, 0.01, "cpu", 0.5),
+        (10, 5, 3, 1, 16, 2, 3, 2, False, 0.01, "cpu", 0.5),
+        (10, 5, 3, 1, 16, 2, 3, 2, True, 0.01, "cuda:0", 0.5),
+        (10, 5, 3, 1, 16, 2, 3, 2, False, 0.01, "cuda:0", 0.5),
+        (10, 5, 3, 1, 16, 2, 3, 2, True, 0.01, "cpu", 0),
+        (10, 5, 3, 1, 16, 2, 3, 2, False, 0.01, "cpu", 0),
+        (10, 5, 3, 1, 16, 2, 3, 2, True, 0.01, "cuda:0", 0),
+        (10, 5, 3, 1, 16, 2, 3, 2, False, 0.01, "cuda:0", 0),
     ],
 )
 def test_gcn(
@@ -40,8 +40,8 @@ def test_gcn(
     degree,
     edge_weight,
     hidden_channels,
-    n_in,
     n_out,
+    num_cat,
     batch_size,
     shuffle,
     lr,
@@ -54,7 +54,8 @@ def test_gcn(
 
     # load dummy graphs
     graphs = generate_dummy_graphs(num_graphs, num_nodes, degree, edge_weight)
-    graphs = add_dummy_features(graphs, n_in)
+    graphs = add_dummy_cat_node_features(graphs, num_cat, feature_name="act")
+    graphs = add_dummy_cat_node_features(graphs, num_cat, feature_name="location")
     graphs = add_dummy_labels(graphs, n_out)
 
     # turn graphs into torch_geometric data objects and split into train and test sets
@@ -66,7 +67,10 @@ def test_gcn(
     test_loader = build_loader(dataset_test, batch_size=batch_size, shuffle=shuffle)
 
     # instantiate model, optimizer, and loss function
-    model = GCN(hidden_channels, n_in, n_out, dropout=dropout).to(torch.device(device))
+    node_embed_sizes = [num_cat]
+    model = GCNGraphLabeller(
+        node_embed_sizes, n_out, hidden_size=hidden_channels, dropout=dropout
+    ).to(torch.device(device))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
 
