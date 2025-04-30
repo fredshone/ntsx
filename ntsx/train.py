@@ -1,12 +1,11 @@
 from pathlib import Path
 
-from torch_geometric.loader import DataLoader
-from ntsx.nx_to_torch import nx_to_torch_geo
 import torch
 import torch.nn.functional as F
 
 from ntsx import graph_ops, nts_to_nx
 from ntsx import read_nts
+from ntsx.nx_to_torch import nx_to_torch_geo, build_loader
 from ntsx.utils import split_dataset, train_epoch, eval_model
 from ntsx.encoders.trip_encoder import TripEncoder
 from ntsx.encoders.table_encoder import TableTokeniser
@@ -15,7 +14,7 @@ from ntsx.models.models import GCNGraphLabeller, GATGraphLabeller
 
 def main(model_name="gcn"):
     """
-    Main function to run the model.
+    Main function to run a graph classifier on the NTS data.
     Args:
         model_name (str): The name of the model to be used. Options are "gcn" or "gat".
     """
@@ -26,7 +25,7 @@ def main(model_name="gcn"):
     attributes_path = dir / "individuals.tab"
     hhs_path = dir / "households.tab"
 
-    years = [2021]
+    years = [2023]
 
     write_dir = Path("tmp")
     write_dir.mkdir(exist_ok=True)
@@ -64,12 +63,13 @@ def main(model_name="gcn"):
     dataset_train, dataset_val = split_dataset(dataset_train, train_ratio=0.8)
 
     # finally we can create a dataloader
-    loader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
-    loader_val = DataLoader(dataset_val, batch_size=64, shuffle=False)
-    loader_test = DataLoader(dataset_test, batch_size=64, shuffle=False)
+    loader_train = build_loader(dataset_train, batch_size=256, shuffle=True)
+    loader_val = build_loader(dataset_val, batch_size=256, shuffle=False)
+    loader_test = build_loader(dataset_test, batch_size=256, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # create the model
     node_embed_sizes = [
         trip_encoder.embed_sizes()["oact"],
         trip_encoder.embed_sizes()["ozone"],
@@ -78,29 +78,27 @@ def main(model_name="gcn"):
 
     if model_name == "gcn":
         model = GCNGraphLabeller(
-            node_embed_sizes=node_embed_sizes, target_size=target_size, hidden_size=32
+            node_embed_sizes=node_embed_sizes, target_size=target_size, hidden_size=64
         ).to(device)
     elif model_name == "gat":
-        edge_embed_sizes = [
-            trip_encoder.embed_sizes()["duration"],
-            trip_encoder.embed_sizes()["tst"],
-            trip_encoder.embed_sizes()["tet"],
-        ]
+        edge_embed_sizes = [trip_encoder.embed_sizes()["mode"]]
         model = GATGraphLabeller(
             node_embed_sizes=node_embed_sizes,
             edge_embed_sizes=edge_embed_sizes,
             target_size=target_size,
-            hidden_size=32,
+            hidden_size=64,
         ).to(device)
     else:
         raise ValueError("Model name must be either 'gcn' or 'gat'")
     
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-3)
-    criterion = torch.nn.BCELoss()
+    # optimiser and loss function
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=5e-3)
+    criterion = torch.nn.NLLLoss()
 
+    # training routine
     model.train()
     print(f"Training {model_name} model")
-    for epoch in range(10):
+    for epoch in range(20):
         train_loss = train_epoch(
             model,
             loader_train,

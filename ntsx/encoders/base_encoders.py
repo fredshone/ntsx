@@ -70,11 +70,11 @@ class ContinuousEncoder(BaseEncoder):
             f"{self}: min: {self.mini}, max: {self.maxi}, range: {self.range}, dtype: {self.dtype}"
         )
 
-    def encode(self, data: Iterable) -> Tensor:
-        data = Tensor(data)
+    def encode(self, data: Series) -> Tensor:
+        data = Tensor(data.to_numpy())
         return (data - self.mini) / self.range
 
-    def decode(self, data: Iterable) -> Series:
+    def decode(self, data: Tensor) -> Series:
         data = Series(data)
         new = data * self.range + self.mini
         return new.astype(self.dtype)
@@ -119,11 +119,11 @@ class TimeEncoder(BaseEncoder):
                 f"{self.name}: min: {self.mini}, range: {self.range}, dtype: {self.dtype}"
             )
 
-    def encode(self, data: Iterable) -> Tensor:
-        data = Tensor(data)
+    def encode(self, data: Series) -> Tensor:
+        data = Tensor(data.to_numpy())
         return (data - self.mini) / self.range
 
-    def decode(self, data: Iterable) -> Series:
+    def decode(self, data: Tensor) -> Series:
         data = Series(data)
         new = data * self.range + self.mini
         return new.astype(self.dtype)
@@ -162,11 +162,11 @@ class CategoricalTokeniser(BaseEncoder):
                     f">>> Warning: CategoricalEncoder has more than 20 categories ({self.size})). <<<"
                 )
 
-    def encode(self, data: Iterable) -> Tensor:
+    def encode(self, data: Series) -> Tensor:
         data = Series(data)
         return tokenize(data, self.mapping)[0]
 
-    def decode(self, data: Iterable, safe: bool = True) -> Series:
+    def decode(self, data: Tensor, safe: bool = True) -> Series:
         data = Series(data)
         reverse_mapping = {v: k for k, v in self.mapping.items()}
         if safe:

@@ -154,8 +154,6 @@ def train_epoch(model, train_loader, optimizer, criterion, device, label_name="l
     total_loss = 0
     for data in train_loader:
         data = data.to(device)
-        print(data)
-        optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, data[label_name])
         loss.backward()
@@ -183,9 +181,9 @@ def eval_model(model, loader, device, label_name="labels"):
         data.to(device)
         with torch.no_grad():
             out = model(data)
-            loss = torch.nn.functional.cross_entropy(out, data[label_name])
+            loss = torch.nn.functional.nll_loss(out, data[label_name])
             total_loss += loss
-    return total_loss / len(loader.dataset)
+    return total_loss / len(loader)
 
 
 def split_dataset(graphs: List[nx.MultiDiGraph], train_ratio: float = 0.8):
