@@ -14,7 +14,7 @@ branch = true
 source = ["ntsx/"]
 
 [tool.coverage.report]
-fail_under = 40
+fail_under = 45
 
 [tool.coverage.html]
 directory = "reports/coverage"

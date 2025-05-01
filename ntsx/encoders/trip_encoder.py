@@ -1,5 +1,6 @@
-from pandas import DataFrame, concat
-from typing import Iterable, Any
+from pandas import DataFrame, Series, concat
+from torch import Tensor
+from typing import Any
 
 from ntsx.encoders.base_encoders import (
     CategoricalTokeniser,
@@ -74,7 +75,7 @@ class TripEncoder:
         """
         if name not in self.encoders:
             raise UserWarning(f"Encoder for {name} not found.")
-        return self.encoders[name].encode([feature]).tolist()[0]
+        return self.encoders[name].encode(Series([feature])).tolist()[0]
 
     def decode(self, feature: Any, name: str) -> Any:
         """
@@ -87,12 +88,12 @@ class TripEncoder:
         """
         if name not in self.encoders:
             raise UserWarning(f"Encoder for {name} not found.")
-        return self.encoders[name].decode([feature]).tolist()[0]
+        return self.encoders[name].decode(Tensor([feature])).tolist()[0]
 
-    def encode_iterable(self, features: Iterable, name: str) -> Any:
+    def encode_iterable(self, features: Series, name: str) -> Any:
         """Encode the feature using the named encoder.
         Args:
-            features (Iterable): input data to be encoded
+            features (Series): input data to be encoded
             name (str): name of the feature to be encoded
         Returns:
             Iterable: encoded data
@@ -101,11 +102,11 @@ class TripEncoder:
             raise UserWarning(f"Encoder for {name} not found.")
         return self.encoders[name].encode(features)
 
-    def decode_iterable(self, features: Iterable, name: str) -> Any:
+    def decode_iterable(self, features: Tensor, name: str) -> Any:
         """
         Decode the feature using the named encoder.
         Args:
-            features (Iterable): input data to be decoded
+            features (Tensor): input data to be decoded
             name (str): name of the feature to be decoded
         Returns:
             Iterable: decoded data

@@ -42,8 +42,10 @@ def load_nts(
         combined_iids = list(trips_iids & labels_iids)
         trips = trips[trips.iid.isin(combined_iids)]
         labels = labels.loc[combined_iids]
+        trips_iids = set(trips.iid)
+        labels_iids = set(labels.index)
         print(
-            f"Fixed: Trips {n_trip_iids} -> {len(trips.iid)}, Labels {n_label_iids} -> {len(labels.index)}"
+            f"Fixed: Trips {n_trip_iids} -> {len(trips_iids)}, Labels {n_label_iids} -> {len(labels_iids)}"
         )
 
     assert trips_iids == labels_iids
@@ -228,6 +230,7 @@ def load_hhs(path: Path, years=None):
         "hh_bikes",
         "hh_motorcycles",
     ]:
+        hhs.loc[:, c] = pd.to_numeric(hhs.loc[:, c], errors="coerce") # some cols are strings
         hhs.loc[hhs[c] < 0, c] = 0
         hhs.loc[hhs[c].isnull(), c] = 0
 

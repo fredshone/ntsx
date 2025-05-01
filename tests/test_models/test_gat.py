@@ -1,17 +1,11 @@
-from ntsx.utils import (
-    add_dummy_features,
-    add_dummy_labels,
-    generate_dummy_graphs,
-    split_dataset,
-    train_epoch,
-    eval_model,
-)
+from ntsx.utils import split_dataset, train_epoch, eval_model
 from ntsx.nx_to_torch import build_loader, nx_to_torch_geo
-from ntsx.gcn import GCN
+from ntsx.models.models import GATGraphLabeller
 
 import torch
 import pytest
 import warnings
+from torch_geometric.loader import DataLoader
 
 torch.manual_seed(0)
 
@@ -22,52 +16,71 @@ else:
 
 
 @pytest.mark.parametrize(
-    "num_graphs, num_nodes, degree, edge_weight, hidden_channels, n_in, n_out, batch_size, shuffle, lr, device, dropout",
+    "shuffle, device, dropout",
     [
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cpu", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cpu", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cuda:0", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cuda:0", 0.5),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cpu", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cpu", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, True, 0.01, "cuda:0", 0),
-        (10, 5, 3, 1, 16, 4, 2, 2, False, 0.01, "cuda:0", 0),
+        (True, "cpu", 0.5),
+        (False, "cpu", 0.5),
+        (True, "cuda:0", 0.5),
+        (False, "cuda:0", 0.5),
+        (True, "cpu", 0),
+        (False, "cpu", 0),
+        (True, "cuda:0", 0),
+        (False, "cuda:0", 0),
     ],
 )
-def test_gcn(
-    num_graphs,
-    num_nodes,
-    degree,
-    edge_weight,
-    hidden_channels,
-    n_in,
-    n_out,
-    batch_size,
-    shuffle,
-    lr,
-    device,
-    dropout,
-):
+def test_gat(shuffle, device, dropout, dummy_graphs_for_gat):
     # skip test if CUDA is not available
     if device == "cuda:0" and not CUDA_AVAILABLE:
         pytest.skip("CUDA is not available. Skipping tests that require CUDA.")
 
     # load dummy graphs
-    graphs = generate_dummy_graphs(num_graphs, num_nodes, degree, edge_weight)
-    graphs = add_dummy_features(graphs, n_in)
-    graphs = add_dummy_labels(graphs, n_out)
+    graphs = dummy_graphs_for_gat
+
+    assert len(graphs) == 10, f"Expected 10 graphs, but got {len(graphs)}"
+    assert (
+        len(graphs[0].nodes) == 10
+    ), f"Expected 10 nodes, but got {len(graphs[0].nodes)}"
+    assert (
+        len(graphs[0].edges) == 10 * 3
+    ), f"Expected 30 edges, but got {len(graphs[0].edges)}"
 
     # turn graphs into torch_geometric data objects and split into train and test sets
     dataset = nx_to_torch_geo(graphs)
     dataset_train, dataset_test = split_dataset(dataset, 0.8)
 
+    # check split dataset
+    assert (
+        len(dataset_train) == 8
+    ), f"Expected 8 graphs, but got {len(dataset_train)}"
+    assert (
+        len(dataset_test) == 2
+    ), f"Expected 2 graphs, but got {len(dataset_test)}"
+
     # build data loaders
-    train_loader = build_loader(dataset_train, batch_size=batch_size, shuffle=shuffle)
-    test_loader = build_loader(dataset_test, batch_size=batch_size, shuffle=shuffle)
+    train_loader = build_loader(dataset_train, batch_size=2, shuffle=shuffle)
+    test_loader = build_loader(dataset_test, batch_size=2, shuffle=shuffle)
+
+    # check if the data loaders are empty
+    assert len(train_loader) > 0, "Train loader is empty."
+    assert len(test_loader) > 0, "Test loader is empty."
+    assert (
+        type(train_loader) == DataLoader
+    ), f"Expected DataLoader, but got {type(train_loader)}"
+    assert (
+        type(test_loader) == DataLoader
+    ), f"Expected DataLoader, but got {type(test_loader)}"
 
     # instantiate model, optimizer, and loss function
-    model = GCN(hidden_channels, n_in, n_out, dropout=dropout).to(torch.device(device))
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    node_embed_sizes = [10]
+    edge_embed_sizes = [10]
+    model = GATGraphLabeller(
+        node_embed_sizes,
+        edge_embed_sizes,
+        target_size=3,
+        hidden_size=16,
+        dropout=dropout,
+    ).to(torch.device(device))
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = torch.nn.CrossEntropyLoss()
 
     # train and evaluate model for 1 epoch
@@ -86,8 +99,10 @@ def test_gcn(
         assert train_loss.device == torch.device(
             device
         ), f"Expected device {device}, but got {train_loss.device}"
-        assert train_loss >= 0, f"Expected non-negative loss, but got {train_loss}"
-        if train_loss > 1:
+        assert (
+            train_loss >= 0
+        ), f"Expected non-negative loss, but got {train_loss}"
+        if train_loss > 2:
             warnings.warn(
                 "The train loss is high. The model may not be training properly. It could also be randomness."
             )
@@ -107,7 +122,7 @@ def test_gcn(
         assert eval_loss >= torch.tensor(
             [0], device=torch.device(device)
         ), f"Expected non-negative loss, but got {eval_loss}"
-        if eval_loss > 1:
+        if eval_loss > 2:
             warnings.warn(
                 "The eval loss is high. The model may not be evaluating properly. It could also be randomness."
             )
